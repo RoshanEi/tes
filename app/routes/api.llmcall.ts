@@ -98,18 +98,22 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
       const modelDetails = models.find((m: ModelInfo) => m.name === model);
 
       if (!modelDetails) {
-        throw new Error('Model not found');
+        logger.warn(`Model ${model} not found, attempting to use provider's model instance directly`);
       }
 
+      // Get the provider from the list of available providers
+      const llmManager = LLMManager.getInstance(import.meta.env);
+      const providerInstance = llmManager.getProvider(providerName);
+
+      if (!providerInstance) {
+        throw new Error(`Provider ${providerName} not found`);
+      }
+
+      logger.info(`Generating response Provider: ${providerName}, Model: ${model}`);
+
+      // Use the model details if found, otherwise use the specified model name directly
+      const modelToUse = modelDetails ? modelDetails.name : model;
       const dynamicMaxTokens = modelDetails && modelDetails.maxTokenAllowed ? modelDetails.maxTokenAllowed : MAX_TOKENS;
-
-      const providerInfo = PROVIDER_LIST.find((p) => p.name === provider.name);
-
-      if (!providerInfo) {
-        throw new Error('Provider not found');
-      }
-
-      logger.info(`Generating response Provider: ${provider.name}, Model: ${modelDetails.name}`);
 
       const result = await generateText({
         system,
@@ -119,8 +123,8 @@ async function llmCallAction({ context, request }: ActionFunctionArgs) {
             content: `${message}`,
           },
         ],
-        model: providerInfo.getModelInstance({
-          model: modelDetails.name,
+        model: providerInstance.getModelInstance({
+          model: modelToUse,
           serverEnv: context.cloudflare?.env as any,
           apiKeys,
           providerSettings,

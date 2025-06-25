@@ -36,6 +36,8 @@ export const ModelSelector = ({
   const providerSearchInputRef = useRef<HTMLInputElement>(null);
   const providerOptionsRef = useRef<(HTMLDivElement | null)[]>([]);
   const providerDropdownRef = useRef<HTMLDivElement>(null);
+  const [customModelName, setCustomModelName] = useState('');
+  const [showCustomModelInput, setShowCustomModelInput] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -63,6 +65,9 @@ export const ModelSelector = ({
         model.name.toLowerCase().includes(modelSearchQuery.toLowerCase()),
     );
 
+  // If no models are found for the current provider, show all models
+  const hasModelsForProvider = filteredModels.length > 0;
+
   const filteredProviders = providerList.filter((p) =>
     p.name.toLowerCase().includes(providerSearchQuery.toLowerCase()),
   );
@@ -86,6 +91,12 @@ export const ModelSelector = ({
       providerSearchInputRef.current.focus();
     }
   }, [isProviderDropdownOpen]);
+
+  // Reset custom model input when provider changes
+  useEffect(() => {
+    setCustomModelName('');
+    setShowCustomModelInput(false);
+  }, [provider]);
 
   const handleModelKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!isModelDropdownOpen) {
@@ -368,7 +379,11 @@ export const ModelSelector = ({
           tabIndex={0}
         >
           <div className="flex items-center justify-between">
-            <div className="truncate">{modelList.find((m) => m.name === model)?.label || 'Select model'}</div>
+            <div className="truncate">
+              {showCustomModelInput && customModelName
+                ? customModelName
+                : modelList.find((m) => m.name === model)?.label || 'Select model'}
+            </div>
             <div
               className={classNames(
                 'i-ph:caret-down w-4 h-4 text-bolt-elements-textSecondary opacity-75',
@@ -428,7 +443,48 @@ export const ModelSelector = ({
               {modelLoading === 'all' || modelLoading === provider?.name ? (
                 <div className="px-3 py-2 text-sm text-bolt-elements-textTertiary">Loading...</div>
               ) : filteredModels.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-bolt-elements-textTertiary">No models found</div>
+                <div>
+                  <div className="px-3 py-2 text-sm text-bolt-elements-textTertiary">
+                    No models found for {provider?.name}. Enter a model name manually:
+                  </div>
+                  <div className="px-3 py-2">
+                    <input
+                      type="text"
+                      value={customModelName}
+                      onChange={(e) => setCustomModelName(e.target.value)}
+                      placeholder="Enter model name..."
+                      className={classNames(
+                        'w-full px-2 py-1.5 rounded-md text-sm',
+                        'bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor',
+                        'text-bolt-elements-textPrimary placeholder:text-bolt-elements-textTertiary',
+                        'focus:outline-none focus:ring-2 focus:ring-bolt-elements-focus',
+                        'transition-all',
+                      )}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <button
+                      className={classNames(
+                        'mt-2 w-full px-3 py-1.5 rounded-md text-sm',
+                        'bg-bolt-elements-background-depth-3 border border-bolt-elements-borderColor',
+                        'text-bolt-elements-textPrimary hover:bg-bolt-elements-background-depth-4',
+                        'focus:outline-none focus:ring-2 focus:ring-bolt-elements-focus',
+                        'transition-all',
+                        !customModelName.trim() ? 'opacity-50 cursor-not-allowed' : '',
+                      )}
+                      disabled={!customModelName.trim()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (customModelName.trim()) {
+                          setModel?.(customModelName.trim());
+                          setShowCustomModelInput(true);
+                          setIsModelDropdownOpen(false);
+                        }
+                      }}
+                    >
+                      Use Custom Model
+                    </button>
+                  </div>
+                </div>
               ) : (
                 filteredModels.map((modelOption, index) => (
                   <div
@@ -449,6 +505,7 @@ export const ModelSelector = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setModel?.(modelOption.name);
+                      setShowCustomModelInput(false);
                       setIsModelDropdownOpen(false);
                       setModelSearchQuery('');
                     }}

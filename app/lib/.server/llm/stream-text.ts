@@ -89,28 +89,43 @@ export async function streamText(props: {
   let modelDetails = staticModels.find((m) => m.name === currentModel);
 
   if (!modelDetails) {
-    const modelsList = [
-      ...(provider.staticModels || []),
-      ...(await LLMManager.getInstance().getModelListFromProvider(provider, {
-        apiKeys,
-        providerSettings,
-        serverEnv: serverEnv as any,
-      })),
-    ];
+    try {
+      const modelsList = [
+        ...(provider.staticModels || []),
+        ...(await LLMManager.getInstance().getModelListFromProvider(provider, {
+          apiKeys,
+          providerSettings,
+          serverEnv: serverEnv as any,
+        })),
+      ];
 
-    if (!modelsList.length) {
-      throw new Error(`No models found for provider ${provider.name}`);
+      if (!modelsList.length) {
+        logger.warn(`No models found for provider ${provider.name}, will attempt to use the specified model directly`);
+      } else {
+        modelDetails = modelsList.find((m) => m.name === currentModel);
+
+        if (!modelDetails) {
+          // Fallback to first model
+          logger.warn(
+            `MODEL [${currentModel}] not found in provider [${provider.name}]. Falling back to first model. ${modelsList[0].name}`,
+          );
+          modelDetails = modelsList[0];
+        }
+      }
+    } catch (error) {
+      logger.error(`Error fetching models for provider ${provider.name}: ${error}`);
+      // Continue execution - we'll use default max tokens and the specified model directly
     }
+  }
 
-    modelDetails = modelsList.find((m) => m.name === currentModel);
-
-    if (!modelDetails) {
-      // Fallback to first model
-      logger.warn(
-        `MODEL [${currentModel}] not found in provider [${provider.name}]. Falling back to first model. ${modelsList[0].name}`,
-      );
-      modelDetails = modelsList[0];
-    }
+  // If we still don't have model details, create a minimal model details object
+  if (!modelDetails) {
+    logger.warn(`Using direct model access for ${currentModel} with provider ${provider.name}`);
+    modelDetails = {
+      name: currentModel,
+      provider: provider.name,
+      maxTokenAllowed: MAX_TOKENS,
+    };
   }
 
   const dynamicMaxTokens = modelDetails && modelDetails.maxTokenAllowed ? modelDetails.maxTokenAllowed : MAX_TOKENS;

@@ -1,0 +1,10 @@
+[build]
+  command = "NODE_OPTIONS=--max_old_space_size=4096 npm run build"
+  publish = "build/client"
+
+[build.environment]
+  NODE_VERSION = "18.18.0"
+  NPM_FLAGS = "--no-audit --production=false"
+
+[functions]
+  node_bundler = "esbuild"
